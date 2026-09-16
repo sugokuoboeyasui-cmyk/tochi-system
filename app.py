@@ -15,11 +15,6 @@ import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
-st.write("### 🔍 接続デバッグ情報")
-st.write("1. SPREADSHEET_IDの設定状態:", "⭕ 取得成功" if SPREADSHEET_ID else "❌ 空っぽ（未取得）")
-st.write("2. GOOGLE_SERVICE_ACCOUNT_JSONの設定状態:", "⭕ 取得成功" if get_config("GOOGLE_SERVICE_ACCOUNT_JSON") else "❌ 空っぽ（未取得）")
-st.write("3. 指定されたシート名:", WORKSHEET_NAME)
-
 try:
     from dotenv import load_dotenv
     load_dotenv()
@@ -51,6 +46,13 @@ def get_config(key: str, default: str = "") -> str:
 
 SPREADSHEET_ID = get_config("SPREADSHEET_ID", "")
 WORKSHEET_NAME = get_config("WORKSHEET_NAME", "物件データ")
+
+# --- ここにデバッグコードを置く（SPREADSHEET_IDの定義より下にする） ---
+st.write("### 🔍 接続デバッグ情報")
+st.write("1. SPREADSHEET_ID:", "⭕ 取得成功" if SPREADSHEET_ID else "❌ 空っぽ（未取得）")
+st.write("2. GOOGLE_SERVICE_ACCOUNT_JSON:", "⭕ 取得成功" if get_config("GOOGLE_SERVICE_ACCOUNT_JSON") else "❌ 空っぽ（未取得）")
+st.write("3. WORKSHEET_NAME:", WORKSHEET_NAME)
+
 NUMERIC_COLUMNS = ["価格(万円)", "土地面積(㎡)", "土地面積(坪)", "坪単価(万円/坪)", "駅徒歩(分)", "総区画数"]
 
 # 全エリアマスタ定義（北九州7区 ＋ 周辺9市町）
