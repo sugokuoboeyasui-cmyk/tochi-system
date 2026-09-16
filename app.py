@@ -193,22 +193,33 @@ def load_data() -> pd.DataFrame:
         st.error("❌ スプレッドシートIDが空です。")
         return pd.DataFrame()
 
-    json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
     try:
-        if json_str:
-            if isinstance(json_str, dict):
-                info = json_str
-            else:
-                info = json.loads(json_str)
-
-            # PEMキーの改行崩れ（MalformedFraming）を自動修復
-            if "private_key" in info and isinstance(info["private_key"], str):
-                info["private_key"] = info["private_key"].replace("\\n", "\n")
-
-            creds = Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
+        # 1. セクション形式 [gcp_service_account] がある場合
+        if "gcp_service_account" in st.secrets:
+            info = dict(st.secrets["gcp_service_account"])
+        # 2. GOOGLE_SERVICE_ACCOUNT_JSON がある場合
         else:
-            key_file = get_config("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
-            creds = Credentials.from_service_account_file(key_file, scopes=GOOGLE_SCOPES)
+            json_val = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
+            if isinstance(json_val, dict):
+                info = json_val
+            else:
+                info = json.loads(json_val)
+
+        # ★ PEM秘密鍵の壊れた改行を徹底的に正規化する処理
+        pk = info.get("private_key", "")
+        if pk:
+            # 余計なエスケープ文字を全削除して一旦1行にする
+            pk_clean = pk.replace("\\n", "\n").replace("\r", "")
+            # ヘッダーとフッターを抜き出し
+            body = re.sub(r"-----BEGIN [^-]+-----", "", pk_clean)
+            body = re.sub(r"-----END [^-]+-----", "", body)
+            body = "".join(body.split())  # 空白・改行を全て除去
+            
+            # 64文字ごとにきれいに改行し直してPEMを再構成
+            lines = [body[i:i+64] for i in range(0, len(body), 64)]
+            info["private_key"] = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(lines) + "\n-----END PRIVATE KEY-----\n"
+
+        creds = Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
     except Exception as e:
         st.error(f"❌ JSONキーの読み込みに失敗しました: {e}")
         return pd.DataFrame()
