@@ -516,3 +516,46 @@ else:
             "総区画数": st.column_config.NumberColumn("区画規模", format="%d 区画"),
         }
     )
+
+# ==========================================
+# ★ 追加機能：アプリ内からSUUMOスクレイピングを実行
+# ==========================================
+st.sidebar.markdown("---")
+st.sidebar.subheader("🔄 データ更新パネル")
+
+if st.sidebar.button("🚀 今すぐSUUMOを巡回して更新", use_container_width=True):
+    with st.spinner("SUUMOから最新情報を取得し、スプレッドシートへ書き込んでいます..."):
+        try:
+            # 外部ファイルを実行する代わりに、スクレイピングのロジックを直接ここに持たせるか、
+            # もしくは subprocess で安全に実行する
+            import subprocess
+            import sys
+            
+            # 実行するスクレイパーのファイル名（ご自身の環境に合わせて変更してください）
+            # 例: "run_scraper.py" または "scraper.py"
+            target_script = "run_scraper.py" 
+            if not os.path.exists(target_script):
+                target_script = "scraper.py"
+
+            if os.path.exists(target_script):
+                # 実行
+                res = subprocess.run(
+                    [sys.executable, target_script],
+                    capture_output=True,
+                    text=True,
+                    timeout=300
+                )
+                if res.returncode == 0:
+                    st.sidebar.success("✨ スクレイピングが完了しました！")
+                    load_data.clear() # キャッシュをクリア
+                    time.sleep(1)
+                    st.rerun()
+                else:
+                    st.sidebar.error("❌ 処理中にエラーが発生しました。")
+                    with st.sidebar.expander("詳細エラー"):
+                        st.code(res.stderr)
+            else:
+                st.sidebar.error(f"❌ スクリプトファイルが見つかりません（{target_script}）。")
+                
+        except Exception as e:
+            st.sidebar.error(f"❌ 実行エラー: {e}")
