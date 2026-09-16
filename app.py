@@ -189,33 +189,35 @@ def extract_area_and_town(address: str) -> tuple[str, str]:
             break
 
     return matched_area, matched_town
-
 @st.cache_data(ttl=600, show_spinner="最新データを読み込み中...")
 def load_data() -> pd.DataFrame:
     raw_id = SPREADSHEET_ID.strip().strip('"').strip("'")
     m_id = re.search(r"/spreadsheets/d/([a-zA-Z0-9-_]+)", raw_id)
     target_id = m_id.group(1) if m_id else raw_id
     if not target_id:
+        st.error("❌ スプレッドシートIDが空です。")
         return pd.DataFrame()
 
     json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
-    if json_str:
-        info = json.loads(json_str)
-        creds = Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
-    else:
-        key_file = get_config("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
-        creds = Credentials.from_service_account_file(key_file, scopes=GOOGLE_SCOPES)
+    try:
+        if json_str:
+            info = json.loads(json_str)
+            creds = Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
+        else:
+            key_file = get_config("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
+            creds = Credentials.from_service_account_file(key_file, scopes=GOOGLE_SCOPES)
+    except Exception as e:
+        st.error(f"❌ JSONキーの読み込みに失敗しました: {e}")
+        return pd.DataFrame()
 
-    records = []
-    for _ in range(3):
-        try:
-            client = gspread.authorize(creds)
-            sh = client.open_by_key(target_id)
-            ws = sh.worksheet(WORKSHEET_NAME)
-            records = ws.get_all_records()
-            break
-        except Exception:
-            time.sleep(1.5)
+    try:
+        client = gspread.authorize(creds)
+        sh = client.open_by_key(target_id)
+        ws = sh.worksheet(WORKSHEET_NAME)
+        records = ws.get_all_records()
+    except Exception as e:
+        st.error(f"❌ スプレッドシート接続エラーの正体: {e}")
+        return pd.DataFrame()
 
     df = pd.DataFrame(records)
     if df.empty:
@@ -244,6 +246,7 @@ def load_data() -> pd.DataFrame:
 
     df[["市区", "町名"]] = df["所在地"].apply(lambda a: pd.Series(extract_area_and_town(a)))
     return df
+
 
 # --------------------------------------------------------------------------
 # メイン画面初期化
