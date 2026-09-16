@@ -47,12 +47,6 @@ def get_config(key: str, default: str = "") -> str:
 SPREADSHEET_ID = get_config("SPREADSHEET_ID", "")
 WORKSHEET_NAME = get_config("WORKSHEET_NAME", "物件データ")
 
-# --- ここにデバッグコードを置く（SPREADSHEET_IDの定義より下にする） ---
-st.write("### 🔍 接続デバッグ情報")
-st.write("1. SPREADSHEET_ID:", "⭕ 取得成功" if SPREADSHEET_ID else "❌ 空っぽ（未取得）")
-st.write("2. GOOGLE_SERVICE_ACCOUNT_JSON:", "⭕ 取得成功" if get_config("GOOGLE_SERVICE_ACCOUNT_JSON") else "❌ 空っぽ（未取得）")
-st.write("3. WORKSHEET_NAME:", WORKSHEET_NAME)
-
 NUMERIC_COLUMNS = ["価格(万円)", "土地面積(㎡)", "土地面積(坪)", "坪単価(万円/坪)", "駅徒歩(分)", "総区画数"]
 
 # 全エリアマスタ定義（北九州7区 ＋ 周辺9市町）
@@ -189,6 +183,7 @@ def extract_area_and_town(address: str) -> tuple[str, str]:
             break
 
     return matched_area, matched_town
+
 @st.cache_data(ttl=600, show_spinner="最新データを読み込み中...")
 def load_data() -> pd.DataFrame:
     raw_id = SPREADSHEET_ID.strip().strip('"').strip("'")
@@ -198,16 +193,15 @@ def load_data() -> pd.DataFrame:
         st.error("❌ スプレッドシートIDが空です。")
         return pd.DataFrame()
 
-json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
+    json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
     try:
         if json_str:
-            # 辞書型ですでに渡ってきた場合と、文字列で渡ってきた場合の両方に対応
             if isinstance(json_str, dict):
                 info = json_str
             else:
                 info = json.loads(json_str)
 
-            # ★ここが重要：PEMキーの改行崩れ（MalformedFraming）を自動修復
+            # PEMキーの改行崩れ（MalformedFraming）を自動修復
             if "private_key" in info and isinstance(info["private_key"], str):
                 info["private_key"] = info["private_key"].replace("\\n", "\n")
 
@@ -255,7 +249,6 @@ json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
 
     df[["市区", "町名"]] = df["所在地"].apply(lambda a: pd.Series(extract_area_and_town(a)))
     return df
-
 
 # --------------------------------------------------------------------------
 # メイン画面初期化
@@ -367,10 +360,10 @@ selected_min_scale = scale_map[sel_scale_label]
 
 st.sidebar.markdown("---")
 st.sidebar.subheader("📐 土地面積（坪）")
-tsubo_range = st.sidebar.slider("坪数範囲", min_value=0.0, max_value=150.0, value=(60.0, 80.0), step=2.0)
+tsubo_range = st.sidebar.slider("坪数範囲", min_value=0.0, max_value=150.0, value=(0.0, 150.0), step=2.0)
 
 st.sidebar.subheader("💰 価格帯（万円）")
-price_range = st.sidebar.slider("価格範囲（万円）", min_value=0, max_value=5000, value=(0, 3000), step=100)
+price_range = st.sidebar.slider("価格範囲（万円）", min_value=0, max_value=5000, value=(0, 5000), step=100)
 
 # ==========================================================================
 # メイン画面：エリア選択（超高速描画）
@@ -393,7 +386,7 @@ if b3.button("⭐ 町上津役周辺のみ"):
         st.session_state[f"chk_t_北九州市八幡西区_{t}"] = True
     st.rerun()
 
-# どの自治体を表示するか選ぶタブ（1000個を一括描画せず、選んだ街だけを描画して超高速化）
+# どの自治体を表示するか選ぶタブ
 selected_city = st.selectbox(
     "街を選んで町名をチェック（開いた街だけを描画するので爆速で動きます）",
     options=list(MASTER_AREAS.keys()),
@@ -441,6 +434,9 @@ def filter_row(row):
     area = row.get("市区", "")
     town = row.get("町名", "")
     key = f"chk_t_{area}_{town}"
+    # 町名が1つも選択されていない場合は全件表示、選択されている場合はその町のみ
+    if not current_active_keys:
+        return True
     return st.session_state.get(key, False)
 
 filtered = df[df.apply(filter_row, axis=1)].copy()
