@@ -198,10 +198,19 @@ def load_data() -> pd.DataFrame:
         st.error("❌ スプレッドシートIDが空です。")
         return pd.DataFrame()
 
-    json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
+json_str = get_config("GOOGLE_SERVICE_ACCOUNT_JSON")
     try:
         if json_str:
-            info = json.loads(json_str)
+            # 辞書型ですでに渡ってきた場合と、文字列で渡ってきた場合の両方に対応
+            if isinstance(json_str, dict):
+                info = json_str
+            else:
+                info = json.loads(json_str)
+
+            # ★ここが重要：PEMキーの改行崩れ（MalformedFraming）を自動修復
+            if "private_key" in info and isinstance(info["private_key"], str):
+                info["private_key"] = info["private_key"].replace("\\n", "\n")
+
             creds = Credentials.from_service_account_info(info, scopes=GOOGLE_SCOPES)
         else:
             key_file = get_config("GOOGLE_SERVICE_ACCOUNT_FILE", "service_account.json")
