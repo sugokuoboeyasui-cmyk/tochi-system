@@ -15,6 +15,11 @@ import pandas as pd
 import streamlit as st
 from google.oauth2.service_account import Credentials
 
+st.write("### 🔍 接続デバッグ情報")
+st.write("1. SPREADSHEET_IDの設定状態:", "⭕ 取得成功" if SPREADSHEET_ID else "❌ 空っぽ（未取得）")
+st.write("2. GOOGLE_SERVICE_ACCOUNT_JSONの設定状態:", "⭕ 取得成功" if get_config("GOOGLE_SERVICE_ACCOUNT_JSON") else "❌ 空っぽ（未取得）")
+st.write("3. 指定されたシート名:", WORKSHEET_NAME)
+
 try:
     from dotenv import load_dotenv
     load_dotenv()
